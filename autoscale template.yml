@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to create an Auto Scaling Group with an Application Load Balancer (ALB).
+
+Resources:
+  # Security Group for ALB and EC2 Instances
+  ALBSecurityGroup:
+    Type: AWS::EC2::load balancer sg
+    Properties:
+      GroupDescription: Allow HTTP and SSH access
+      VpcId: vpc-057b60f9cb203bdb6   # Replace with your VPC ID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0  # Allow HTTP access from anywhere
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0  # Allow SSH access from anywhere (change for production)
+
+  # Application Load Balancer
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::manhwa-load-balancer
+    Properties:
+      Name: manhwa-load-balancer
+      Subnets:
+        - subnet-022201e7043646585  # Replace with your subnet IDs
+        - subnet-078598c328aa285d1
+      SecurityGroups:
+        - !Ref load balancer sg
+      Scheme: internet-facing
+
+  # Target Group for the ALB
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::manhwa-target-group
+    Properties:
+      Name: manhwa-target-group
+      VpcId: vpc-057b60f9cb203bdb6  # Replace with your VPC ID
+      Protocol: HTTP
+      Port: 80
+      TargetType: instance
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: 80
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 2
+
+  # Listener for the ALB
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  # Launch Template for Auto Scaling Group
+  LaunchTemplate:
+    Type: AWS::EC2::manhwa
+    Properties:
+      LaunchTemplateName: manhwa
+      LaunchTemplateData:
+        InstanceType: t2.micro  # Replace with desired instance type
+        ImageId: ami-03083e0efd3aca6c5  # Replace with the desired AMI ID
+        SecurityGroupIds:
+          - !Ref load-balancer-to-asg
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            cd /home/ec2-user/my-app
+            python3 app.py
+
+  # Auto Scaling Group
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::manhwa
+    Properties:
+      AutoScalingGroupName: manhwa
+      VPCZoneIdentifier:
+        - subnet-078598c328aa285d1  # Replace with your subnet IDs
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      MinSize: 0
+      MaxSize: 3
+      DesiredCapacity: 1
+      TargetGroupARNs:
+        - !Ref ALBTargetGroup
+
+      # Optional: Configure Scaling Policies
+      MetricsCollection:
+        - Granularity: "1Minute"
+          Metrics:
+            - GroupMinSize
+            - GroupMaxSize
+
+Outputs:
+  LoadBalancerDNSName:
+    Description: The DNS name of the Load Balancer(manhwa-load-balancer-810451783.us-west-2.elb.amazonaws.com)
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
