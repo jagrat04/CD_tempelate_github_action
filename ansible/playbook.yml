@@ -1,0 +1,39 @@
+- name: Deploy Nginx Docker with Chef
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    - name: Start Docker
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Install Chef
+      shell: |
+        curl -L https://omnitruck.chef.io/install.sh | sudo bash
+
+    - name: Run Chef recipe to pull and run Docker container
+      copy:
+        content: |
+          docker_image 'nginx-html' do
+            repo 'docker.io/{{ dockerhub_username }}/nginx-html'
+            tag 'latest'
+            action :pull
+          end
+
+          docker_container 'nginx-html' do
+            repo 'docker.io/{{ dockerhub_username }}/nginx-html'
+            port '80:80'
+            action :run
+          end
+        dest: /tmp/recipe.rb
+
+    - name: Execute Chef Recipe
+      shell: chef-apply /tmp/recipe.rb
