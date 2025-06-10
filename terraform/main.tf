@@ -10,7 +10,7 @@ resource "aws_instance" "web" {
   count         = var.instance_count
   ami           = "ami-0c2b8ca1dad447f8a" # Amazon Linux 2 AMI
   instance_type = "t2.micro"
-  key_name      = "your-ssh-key-name"
+  key_name      = "ssh_key_name"
 
   tags = {
     Name = "web-${count.index}"
@@ -40,7 +40,7 @@ resource "aws_lb" "alb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.allow_http.id]
-  subnets            = ["subnet-xxxxxxxx", "subnet-yyyyyyyy"] # replace with real subnet IDs
+  subnets            = ["subnet-xxxxxxxx", "subnet-yyyyyyyy"] 
 }
 
 output "load_balancer_dns" {
